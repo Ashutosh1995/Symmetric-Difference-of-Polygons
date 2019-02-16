@@ -13,6 +13,7 @@ from math import fabs
 import  pdb
 import sympy
 from sympy import *
+import matplotlib.patches as mpatches
 
 class Node:
     def __init__(self, t, mark=False):
@@ -47,10 +48,10 @@ class Graph:
         self.edges.append([self.nodes[-1],self.nodes[0]])
 
     def draw(self):
-        G = nx.DiGraph()
-        G.add_nodes_from(self.nodes)
-        G.add_edges_from(self.edges)
-        nx.draw(G, pos=self.positions)
+        self.G = nx.DiGraph()
+        self.G.add_nodes_from(self.nodes)
+        self.G.add_edges_from(self.edges)
+        nx.draw(self.G, pos=self.positions)
 
 def edgeIntersect(e1, e2):
     p,q = e1
@@ -139,7 +140,7 @@ def BreakEdge(varTemp, MatTemp):
                 new_edges.append([matTemp[loo], jerry])
     return new_edges
 
-def drawGraph(P,Q,graphVertex,graphVertexPos, EdgeP, EdgeQ, EdgeNone):
+def drawGraph(P,Q,graphVertex,graphVertexPos, EdgeP, EdgeQ, EdgeNone1, EdgeNone2, epoch):
     G = nx.DiGraph()
     pos = {}
     G.add_nodes_from(P.nodes)
@@ -148,7 +149,8 @@ def drawGraph(P,Q,graphVertex,graphVertexPos, EdgeP, EdgeQ, EdgeNone):
     pos.update(Q.positions)
     G.add_nodes_from(graphVertex)
     pos.update(graphVertexPos)
-    G.add_edges_from(EdgeNone)
+    G.add_edges_from(EdgeNone1)
+    G.add_edges_from(EdgeNone2)
     G.add_edges_from(EdgeP)
     G.add_edges_from(EdgeQ)
 
@@ -158,8 +160,16 @@ def drawGraph(P,Q,graphVertex,graphVertexPos, EdgeP, EdgeQ, EdgeNone):
 
     nx.draw_networkx_nodes(G, pos)
     nx.draw_networkx_edges(G, pos)
+    nx.draw_networkx_edges(G,pos, edgelist=EdgeNone1+EdgeP, width=8,alpha=0.5,edge_color='r')
+    nx.draw_networkx_edges(G,pos, edgelist=EdgeNone2+EdgeQ,width=8,alpha=0.5,edge_color='b')
     nx.draw_networkx_labels(G, pos, labels, font_size=16)
+    red_patch = mpatches.Patch(color='red', label='Prediction')
+    blue_patch = mpatches.Patch(color='blue', label='Ground Truth')
+    plt.legend(handles=[red_patch, blue_patch], loc='upper center',)
+    plt.suptitle("Epoch: " + str(epoch), fontsize=35)
+    plt.savefig(str(epoch) + '.png', format="PNG")
     plt.show()
+    #plt.savefig(str(epoch) + '.png')
     simpleCycles = list(nx.simple_cycles(G))
     simpleCycles.sort(key=len)
     del simpleCycles[len(simpleCycles)-2:len(simpleCycles)]
@@ -170,7 +180,6 @@ def getDictFunc(PM, L):
     for i in range(PM.shape[0]):
         for j in range(PM.shape[1]):
             DC[PM[i,j]] = L.nodes[j][i]
-
     return DC
 
 def isCollinear(a, b, c):
@@ -237,50 +246,58 @@ def AreaCalculation(UPSC, DC_, P_Mat):
 
 if __name__=="__main__":
 
+
+
+
     #First graph
-    PG = [(-2,0),(0,1),(2,0)]
-    QG = [(-2,0.5),(0,-1),(2,0.5)]
+    #PG = [(-2,0),(0,1),(2,0)]
+    #QG = [(-2,0.5),(0,-1),(2,0.5)]
+    #Q = Graph(fromPolygon=QG)
 
     #Second graph
-    #PG = [(0,0), (0,1), (2,2), (1,0)]
-    #QG = [(1.5,0.5), (1.5,1.5), (0.5,1.5), (0.5,-0.1)]
-
-    lr = 0.3
-    P = Graph(fromPolygon=PG)
+    QG = [(1.5,0.5), (1.5,1.5), (0.5,1.5), (0.5,-0.1)]
     Q = Graph(fromPolygon=QG)
+    PG = [(0,0), (0,1), (2,2), (1,0)]
 
-    E = []
-    EP = []
-    EQ = []
+    for epoch in range(20):
+        if epoch < 5:
+            learning_rate = 0.35
+        else:
+            learning_rate = 0.15
+        P = Graph(fromPolygon=PG)
+        E1 = []
+        E2 = []
+        EP = []
+        EQ = []
 
-    MatPQ, is_brokenPQ, grVertex, grVertexPos = computeIntersect(P,Q)
-    MatQP = map(list, zip(*MatPQ))
-    is_brokenQP = map(list, zip(*is_brokenPQ))
+        MatPQ, is_brokenPQ, grVertex, grVertexPos = computeIntersect(P,Q)
+        MatQP = map(list, zip(*MatPQ))
+        is_brokenQP = map(list, zip(*is_brokenPQ))
 
-    for ind,var in enumerate(P.edges):
-        if any(v is not 0 for v in is_brokenPQ[ind][:]) == True:
-            EP.append(BreakEdge(var,MatPQ[ind][:]))
-        elif all(v is 0 for v in is_brokenPQ[ind][:]) == True:
-            E.append(var)
+        for ind,var in enumerate(P.edges):
+            if any(v is not 0 for v in is_brokenPQ[ind][:]) == True:
+                EP.append(BreakEdge(var,MatPQ[ind][:]))
+            elif all(v is 0 for v in is_brokenPQ[ind][:]) == True:
+                E1.append(var)
 
-    for ind1,var1 in enumerate(Q.edges):
-        if any(v1 is not 0 for v1 in is_brokenQP[ind1][:]) == True:
-            EQ.append(BreakEdge(var1,MatQP[ind1][:]))
-        elif all(v1 is 0 for v1 in is_brokenQP[ind1][:]) == True:
-            E.append(var1)
+        for ind1,var1 in enumerate(Q.edges):
+            if any(v1 is not 0 for v1 in is_brokenQP[ind1][:]) == True:
+                EQ.append(BreakEdge(var1,MatQP[ind1][:]))
+            elif all(v1 is 0 for v1 in is_brokenQP[ind1][:]) == True:
+                E2.append(var1)
 
-    EPP = [val for sublist in EP for val in sublist]
-    EQQ = [val for sublist in EQ for val in sublist]
+        EPP = [val for sublist in EP for val in sublist]
+        EQQ = [val for sublist in EQ for val in sublist]
 
 
-    SC, Graph = drawGraph(P,Q, grVertex, grVertexPos, EPP, EQQ, E)
-    PMat = MatrixSymbol('P',2,len(P.nodes))
-    DICT = getDictFunc(PMat, P)
-    UpdatedSC = nearestPredictedCoordinates(SC, grVertex, P, Q, PMat)
-    GM = AreaCalculation(UpdatedSC, DICT, PMat)
+        SC, G = drawGraph(P,Q, grVertex, grVertexPos, EPP, EQQ, E1, E2, epoch)
+        PMat = MatrixSymbol('P',2,len(P.nodes))
+        DICT = getDictFunc(PMat, P)
+        UpdatedSC = nearestPredictedCoordinates(SC, grVertex, P, Q, PMat)
+        GM = AreaCalculation(UpdatedSC, DICT, PMat)
 
-    DiffGM = [tuple(lr*x for x in s) for s in GM]
-    print(DiffGM)
-    PG_ = [(a[0] - b[0], a[1] - b[1]) for a, b in zip(PG, DiffGM)]
+        DiffGM = [tuple(learning_rate*x for x in s) for s in GM]
 
-    print(PG_)
+        PG = [(a[0] - b[0], a[1] - b[1]) for a, b in zip(PG, DiffGM)]
+        # P.P = UPPG
+        #print(PG)
